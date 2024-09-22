@@ -54,18 +54,20 @@ export function EthereumView({
       const { big_r, s, recovery_id } = await wallet.getTransactionResult(
         transactions[0],
       )
+      console.log('transactions[0]', transactions[0])
+      console.log('big_r', big_r, 's', s, 'recovery_id', recovery_id)
+
       const signedTransaction = await eth.reconstructSignatureFromLocalSession(
         big_r,
         s,
         recovery_id,
-        senderAddress,
       )
       setSignedTransaction(signedTransaction)
       setStatus(`✅ Signed payload ready to be relayed to the Ethereum network`)
       setStep('relay')
 
       setReloaded(false)
-      removeUrlParams()
+      // removeUrlParams()
     }
   }, [senderAddress])
 
@@ -79,7 +81,6 @@ export function EthereumView({
 
   useEffect(() => {
     if (!signedAccountId) return
-    console.log('deriveAddress', derivationPath, signedAccountId)
     setEthAddress()
   }, [derivationPath, signedAccountId])
 
@@ -90,8 +91,9 @@ export function EthereumView({
     const ethPayload = await eth.createUSDCTransferPayload(
       senderAddress,
       receiver,
-      web3.utils.toWei(amount, 6),
+      amount,
     )
+
     if (!ethPayload) return
 
     const { payload } = ethPayload
@@ -131,6 +133,7 @@ export function EthereumView({
         </>,
       )
     } catch (e) {
+      console.log(e)
       setStatus(`❌ Error: ${e.message}`)
     }
 

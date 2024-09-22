@@ -5,7 +5,7 @@ import { providers } from 'near-api-js'
 import { distinctUntilChanged, map } from 'rxjs'
 import '@near-wallet-selector/modal-ui/styles.css'
 import { setupModal } from '@near-wallet-selector/modal-ui'
-import { setupWalletSelector } from '@near-wallet-selector/core'
+import { setupWalletSelector, WalletSelector } from '@near-wallet-selector/core'
 import { setupHereWallet } from '@near-wallet-selector/here-wallet'
 import { setupMyNearWallet } from '@near-wallet-selector/my-near-wallet'
 import { setupMeteorWallet } from '@near-wallet-selector/meteor-wallet'
@@ -17,6 +17,7 @@ const NO_DEPOSIT = '0'
 export class Wallet {
   createAccessKeyFor?: string
   networkId: string
+  selector?: Promise<WalletSelector>
 
   /**
    * @constructor
@@ -76,6 +77,7 @@ export class Wallet {
    * Displays a modal to login the user
    */
   signIn = async () => {
+    if (!this.selector) return
     const modal = setupModal(await this.selector, {
       contractId: this.createAccessKeyFor,
     })
@@ -86,6 +88,7 @@ export class Wallet {
    * Logout the user
    */
   signOut = async () => {
+    if (!this.selector) return
     const selectedWallet = await (await this.selector).wallet()
     selectedWallet.signOut()
   }
@@ -129,6 +132,7 @@ export class Wallet {
     gas = THIRTY_TGAS,
     deposit = NO_DEPOSIT,
   }) => {
+    if (!this.selector) return
     // Sign a transaction with the "FunctionCall" action
     const selectedWallet = await (await this.selector).wallet()
     const outcome = await selectedWallet.signAndSendTransaction({
@@ -156,6 +160,7 @@ export class Wallet {
    */
   getTransactionResult = async (txhash) => {
     const walletSelector = await this.selector
+    if (!walletSelector) return null
     const { network } = walletSelector.options
     const provider = new providers.JsonRpcProvider({ url: network.nodeUrl })
 

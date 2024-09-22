@@ -19,7 +19,13 @@ export const NearProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <NearContext.Provider
-      value={{ wallet, signedAccountId, eth: new Ethereum('op') }}
+      value={{
+        wallet,
+        signedAccountId,
+        eth: new Ethereum('op'),
+        base: new Ethereum('base'),
+        arb: new Ethereum('arb'),
+      }}
     >
       {children}
     </NearContext.Provider>

@@ -11,28 +11,42 @@ import {
   uncompressedHexPointToEvmAddress,
 } from './kdf'
 import { abi } from '@/abi/usdc'
+import {
+  createStealthClient,
+  VALID_SCHEME_ID,
+  ERC6538_CONTRACT_ADDRESS,
+} from '@c10n/stealth'
 
 const INFURA_KEY = process.env.INFURA_KEY
 
 const rpcUrlMap: Record<string, string> = {
-  eth: `https://sepolia.infura.io/v3/${INFURA_KEY}`,
-  op: `https://optimism-sepolia.infura.io/v3/${INFURA_KEY}`,
   arb: `https://arbitrum-sepolia.infura.io/v3/${INFURA_KEY}`,
   base: 'https://sepolia.base.org',
+  op: `https://optimism-sepolia.infura.io/v3/${INFURA_KEY}`,
 }
 
 const chainIdMap: Record<string, number> = {
-  eth: 11155111,
-  op: 11155420,
   arb: 421614,
   base: 84532,
+  op: 11155420,
 }
 
 const chainUSDCMap: Record<string, string> = {
-  eth: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-  op: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7',
   arb: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d',
   base: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+  op: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7',
+}
+
+const erc5564AnnouncerMap: Record<string, string> = {
+  arb: '0x55649E01B5Df198D18D95b5cc5051630cfD45564',
+  base: '0x55649E01B5Df198D18D95b5cc5051630cfD45564',
+  op: '0x55649E01B5Df198D18D95b5cc5051630cfD45564',
+}
+
+const erc6538RegistryMap: Record<string, string> = {
+  arb: '0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538',
+  base: '0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538',
+  op: '0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538',
 }
 
 export class Ethereum {
@@ -73,7 +87,7 @@ export class Ethereum {
     if (!block || !block.baseFeePerGas) return null
     const maxFeePerGas = await this.web3.eth.getGasPrice()
     const maxPriorityFeePerGas = await this.web3.eth.getMaxPriorityFeePerGas()
-    const buffer = BigInt(2000000000)
+    const buffer = BigInt(0)
     return {
       maxFeePerGas:
         (block.baseFeePerGas > maxFeePerGas
@@ -106,13 +120,13 @@ export class Ethereum {
     return await contract[methodName](...args)
   }
 
-  createUSDCTransferPayload(sender: string, receiver: string, amount: string) {
+  createUSDCTransferPayload(sender: string, receiver: string, amount: number) {
     const contractAddr = chainUSDCMap[this.chain]
     const contract = new Contract(contractAddr, abi)
 
     const data = contract.interface.encodeFunctionData('transfer', [
       receiver,
-      amount,
+      this.web3.utils.toWei(amount, 6),
     ])
     return this.createPayload(sender, contractAddr, 0, data)
   }
@@ -157,6 +171,8 @@ export class Ethereum {
       chain: this.chain_id,
     }
 
+    console.log('transactionData', transactionData)
+
     // Create a transaction
     const transaction = FeeMarketEIP1559Transaction.fromTxData(
       transactionData,
@@ -199,13 +215,20 @@ export class Ethereum {
     return signature
   }
 
-  async reconstructSignatureFromLocalSession(big_r, s, recovery_id, sender) {
+  async reconstructSignatureFromLocalSession(big_r, s, recovery_id) {
+    const common = Common.custom(
+      { chainId: this.chain_id },
+      { hardfork: Hardfork.Paris },
+    )
     const serialized = Uint8Array.from(
       JSON.parse(`[${sessionStorage.getItem('transaction')}]`),
     )
-    const transaction = FeeMarketEIP1559Transaction.fromSerializedTx(serialized)
+    const transaction = FeeMarketEIP1559Transaction.fromSerializedTx(
+      serialized,
+      { common },
+    )
     console.log('transaction', transaction)
-    return this.reconstructSignature(big_r, s, recovery_id, transaction, sender)
+    return this.reconstructSignature(big_r, s, recovery_id, transaction)
   }
 
   // This code can be used to actually relay the transaction to the Ethereum network
@@ -214,6 +237,40 @@ export class Ethereum {
     const serializedTx = bytesToHex(signedTransaction.serialize())
     console.log('serializedTx', serializedTx)
     const relayed = await this.web3.eth.sendSignedTransaction(serializedTx)
+    console.log('relayed', relayed)
     return relayed.transactionHash
+  }
+
+  async getAnnouncements() {
+    const rpcUrl = rpcUrlMap[this.chain]
+    const stealthClient = createStealthClient({
+      chainId: this.chain_id,
+      rpcUrl,
+    })
+    const ERC5564Address = erc5564AnnouncerMap[this.chain] as `0x${string}`
+    const announcements = await stealthClient.getAnnouncementsForUser({
+      ERC5564Address,
+      args: {},
+    })
+  }
+
+  async getStealthMetaAddress(registrant: `0x${string}`) {
+    // const rpcUrl = rpcUrlMap[this.chain]
+    const rpcUrl = `https://sepolia.infura.io/v3/${INFURA_KEY}`
+    const clientParams = {
+      // chainId: this.chain_id,
+      chainId: 11_155_111,
+      rpcUrl,
+    }
+    console.log('getStealthMetaAddress clientParams', clientParams)
+    const stealthClient = createStealthClient(clientParams)
+    const params = {
+      ERC6538Address: ERC6538_CONTRACT_ADDRESS,
+      registrant,
+      schemeId: VALID_SCHEME_ID.SCHEME_ID_1,
+    }
+    console.log('getStealthMetaAddress params', params)
+    const stealthMetaAddress = await stealthClient.getStealthMetaAddress(params)
+    return stealthMetaAddress
   }
 }

@@ -1,0 +1,19 @@
+{
+  "name": "stealth",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/stealth/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:swc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/stealth",
+        "main": "libs/stealth/src/index.ts",
+        "tsConfig": "libs/stealth/tsconfig.lib.json",
+        "assets": ["libs/stealth/*.md"]
+      }
+    }
+  }
+}

@@ -12,6 +12,8 @@ interface NearContextType {
   wallet?: Wallet
   signedAccountId: string
   eth?: Ethereum
+  base?: Ethereum
+  arb?: Ethereum
 }
 
 /** @type {import ('react').Context<NearContext>} */
